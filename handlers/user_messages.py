@@ -13,8 +13,12 @@ from keyboards import get_contact_keyboard, get_category_keyboard
 router = Router()
 
 
+# ✅ 1. Kontakt handleri - ENG BIRINCHI
 @router.message(F.contact)
 async def handle_contact(message: Message):
+    """
+    Foydalanuvchi kontakt yuborganda
+    """
     user_id = message.from_user.id
     phone = message.contact.phone_number
 
@@ -22,19 +26,23 @@ async def handle_contact(message: Message):
 
     await message.answer(
         "✅ Kontaktingiz saqlandi.\n",
-        reply_markup=await get_category_keyboard()  # ✅ await qo'shildi
+        reply_markup=await get_category_keyboard()
     )
 
 
+# ✅ 2. Text xabar handleri - IKKINCHI
 @router.message(F.text)
 async def handle_user_message(message: Message, bot: Bot):
+    """
+    Foydalanuvchi oddiy text xabar yuborganda
+    """
     user_id = message.from_user.id
 
     conv = await get_active_conversation(user_id)
     if not conv:
         await message.answer(
-            "❌ Avval bo'limni tanlang (/start).",
-            reply_markup=await get_category_keyboard()  # ✅ await qo'shildi
+            "❌ Avval mutaxassisni tanlang (/start).",
+            reply_markup=await get_category_keyboard()
         )
         return
 

@@ -105,12 +105,12 @@ async def cmd_register(message: Message):
     )
 
 
-# ✅ MUHIM: Mutaxassisning javobini tutish
-# Filter: reply_to_message mavjud bo'lishi kerak
-@router.message(F.reply_to_message)
+# ✅ MUHIM: Faqat text xabarlarga va reply bo'lganda ishlaydi
+@router.message(F.reply_to_message, F.text)
 async def handle_specialist_reply(message: Message, bot: Bot):
     """
-    Mutaxassis reply qilganda, userga javob yuboradi
+    Mutaxassis reply qilganda, userga javob yuboradi.
+    Faqat text xabarlar uchun!
     """
     specialist_chat_id = message.chat.id
 
