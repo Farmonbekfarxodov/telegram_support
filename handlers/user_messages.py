@@ -6,7 +6,7 @@ from database import (
     save_message,
     save_message_mapping,
     save_contact,
-    get_user_phone,   # <-- qo'shildi
+    get_user_phone,
 )
 from keyboards import get_contact_keyboard, get_category_keyboard
 
@@ -21,9 +21,8 @@ async def handle_contact(message: Message):
     await save_contact(user_id, phone)
 
     await message.answer(
-        "✅ Kontaktingiz saqlandi.\n"
-        "Endi bemalol yozishingiz mumkin.",
-        reply_markup=get_category_keyboard()
+        "✅ Kontaktingiz saqlandi.\n",
+        reply_markup=await get_category_keyboard()  # ✅ await qo'shildi
     )
 
 
@@ -35,7 +34,7 @@ async def handle_user_message(message: Message, bot: Bot):
     if not conv:
         await message.answer(
             "❌ Avval bo'limni tanlang (/start).",
-            reply_markup=get_category_keyboard()
+            reply_markup=await get_category_keyboard()  # ✅ await qo'shildi
         )
         return
 

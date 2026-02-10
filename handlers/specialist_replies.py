@@ -1,13 +1,19 @@
 import os
-from aiogram import Router
+from aiogram import Router, Bot, F
 from aiogram.filters import Command
 from aiogram.types import Message
 
-from database import upsert_specialist
+from database import (
+    upsert_specialist,
+    get_conversation_by_specialist_message,
+    get_user_by_conversation,
+    save_message,
+    is_specialist,
+)
 
 router = Router()
 
-ALLOWED_CATEGORIES = {"texnik", "savdo", "konsultatsiya", "boshqa"}
+ALLOWED_CATEGORIES = {"admin1", "admin2", "admin3", "admin4"}
 
 
 def _parse_admin_ids(raw: str | None) -> set[int]:
@@ -25,7 +31,6 @@ def _parse_admin_ids(raw: str | None) -> set[int]:
         try:
             out.add(int(p))
         except ValueError:
-            # noto'g'ri bo'laklarni e'tiborsiz qoldiramiz
             pass
     return out
 
@@ -42,8 +47,8 @@ def _help_text() -> str:
     return (
         "Ro'yxatdan o'tish:\n"
         "/register <kategoriya> <secret>\n\n"
-        "Kategoriyalar: texnik | savdo | konsultatsiya | boshqa\n"
-        "Misol: /register texnik MySecret123"
+        "Kategoriyalar: admin1 | admin2 | admin3 | admin4\n"
+        "Misol: /register admin1 MySecret123"
     )
 
 
@@ -53,14 +58,7 @@ async def cmd_register(message: Message):
     Himoyalangan register:
     - Faqat ADMIN_IDS ichidagi adminlar ishlata oladi
     - Va albatta REGISTER_SECRET ham to'g'ri bo'lishi kerak
-
-    Komanda:
-      /register texnik MySecret123
-
-    Natija:
-      specialists jadvalida shu category uchun chat_id = mutaxassis_id bo'lib saqlanadi.
     """
-    # Konfiguratsiya tekshiruvi
     if not ADMIN_IDS:
         await message.answer("❌ ADMIN_IDS sozlanmagan (.env). Adminlar ro'yxatini kiriting.")
         return
@@ -68,13 +66,10 @@ async def cmd_register(message: Message):
         await message.answer("❌ REGISTER_SECRET sozlanmagan (.env). Secret token kiriting.")
         return
 
-    # Admin tekshiruvi
     if not _is_admin(message.from_user.id):
         await message.answer("⛔ Sizda bu buyruqni ishlatish huquqi yo'q.")
         return
 
-    # Argumentlarni o'qish
-    # /register <category> <secret>
     parts = (message.text or "").split(maxsplit=2)
     if len(parts) < 3:
         await message.answer(_help_text())
@@ -86,7 +81,7 @@ async def cmd_register(message: Message):
     if category not in ALLOWED_CATEGORIES:
         await message.answer(
             "❌ Noto'g'ri kategoriya.\n"
-            "Mavjud: texnik, savdo, konsultatsiya, boshqa"
+            "Mavjud: admin1 | admin2 | admin3 | admin4"
         )
         return
 
@@ -94,16 +89,7 @@ async def cmd_register(message: Message):
         await message.answer("⛔ Secret noto'g'ri.")
         return
 
-    # Bu yerda muhim savol: kimni ro'yxatdan o'tkazyapmiz?
-    #
-    # 1) Admin o'zi mutaxassis bo'lsa: adminning o'zi yozsa ham bo'ladi.
-    # 2) Admin mutaxassisni chatda yo'naltirib ro'yxatdan o'tkazmoqchi bo'lsa:
-    #    eng sodda yo'l — mutaxassisning o'zi botga yozib /start qilishi va
-    #    admin esa undan keyin (mutaxassisning chatidan) /register ishlatishi.
-    #
-    # Shuning uchun chat_id sifatida message.chat.id ishlatamiz.
     specialist_chat_id = message.chat.id
-
     username = message.from_user.username
     full_name = f"{message.from_user.first_name or ''} {message.from_user.last_name or ''}".strip() or None
 
@@ -117,3 +103,47 @@ async def cmd_register(message: Message):
         "u odam botga o'zi yozib (kamida /start) chat ochgan bo'lishi kerak va "
         "register o'sha chatda bajariladi."
     )
+
+
+# ✅ MUHIM: Mutaxassisning javobini tutish
+# Filter: reply_to_message mavjud bo'lishi kerak
+@router.message(F.reply_to_message)
+async def handle_specialist_reply(message: Message, bot: Bot):
+    """
+    Mutaxassis reply qilganda, userga javob yuboradi
+    """
+    specialist_chat_id = message.chat.id
+
+    # Tekshirish: bu mutaxassismi?
+    if not await is_specialist(specialist_chat_id):
+        # Oddiy user, keyingi handler bilan ishlaydi
+        return
+
+    # Reply qilingan xabarning IDsi
+    replied_message_id = message.reply_to_message.message_id
+
+    # Bu xabar qaysi conversation'ga tegishli?
+    conversation_id = await get_conversation_by_specialist_message(replied_message_id)
+    if not conversation_id:
+        await message.answer("❌ Bu xabar hech qaysi suhbatga tegishli emas.")
+        return
+
+    # Userning chat_id'sini topamiz
+    user_id = await get_user_by_conversation(conversation_id)
+    if not user_id:
+        await message.answer("❌ Foydalanuvchi topilmadi.")
+        return
+
+    # Javobni saqlash
+    await save_message(conversation_id, "specialist", message.text, message.message_id)
+
+    # Userga javobni yuborish
+    try:
+        await bot.send_message(
+            chat_id=user_id,
+            text=f"💬 Mutaxassis javobi:\n\n{message.text}"
+        )
+        await message.answer("✅ Javob yuborildi.")
+    except Exception as e:
+        await message.answer(f"❌ Xatolik: {e}")
+        print(f"Error sending to user {user_id}: {e}")

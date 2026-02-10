@@ -1,6 +1,10 @@
 import os
 import asyncpg
 from typing import Optional
+from dotenv import load_dotenv  # ✅ Qo'shildi
+
+# ✅ .env faylini yuklash
+load_dotenv()
 
 # PostgreSQL ulanish ma'lumotlari (.env / env'dan olinadi)
 DB_CONFIG = {
@@ -66,10 +70,51 @@ async def init_db():
             )
         ''')
 
+        # Mutaxassislar jadvali
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS specialists (
+                category VARCHAR(50) PRIMARY KEY,
+                chat_id BIGINT NOT NULL,
+                username VARCHAR(255),
+                full_name VARCHAR(255),
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        ''')
+
         # Indekslar (tezlik uchun)
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_conv_user_status ON conversations(user_id, status)')
-        await conn.execute('CREATE INDEX IF NOT EXISTS idx_mapping_specialist ON message_mapping(specialist_message_id)')
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_mapping_specialist ON message_mapping(specialist_message_id)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id)')
+        await conn.execute('CREATE INDEX IF NOT EXISTS idx_specialists_active ON specialists(is_active)')
+
+    # ✅ .env dan mutaxassislarni avtomatik yuklash
+    await _load_specialists_from_env()
+
+
+async def _load_specialists_from_env():
+    """
+    .env faylidan mutaxassislarni o'qib database'ga yozish
+    """
+    categories = ["admin1", "admin2", "admin3", "admin4"]
+
+    for category in categories:
+        chat_id_str = os.getenv(f"SPECIALIST_{category.upper()}_CHAT_ID")
+        full_name = os.getenv(f"SPECIALIST_{category.upper()}_NAME")
+        username = os.getenv(f"SPECIALIST_{category.upper()}_USERNAME")
+
+        # Agar chat_id mavjud bo'lsa, database'ga yozamiz
+        if chat_id_str:
+            try:
+                chat_id = int(chat_id_str)
+                await upsert_specialist(category, chat_id, username, full_name)
+                print(f"✅ {category}: {full_name or username or chat_id} yuklandi")
+            except ValueError:
+                print(f"⚠️ {category}: chat_id noto'g'ri ({chat_id_str})")
+        else:
+            print(f"⚠️ {category}: SPECIALIST_{category.upper()}_CHAT_ID topilmadi")
 
 
 async def close_db():
@@ -189,6 +234,7 @@ async def close_conversation(conversation_id: int):
             conversation_id
         )
 
+
 async def get_user_phone(user_id: int) -> str | None:
     pool = _require_pool()
     async with pool.acquire() as conn:
@@ -196,6 +242,7 @@ async def get_user_phone(user_id: int) -> str | None:
             "SELECT phone FROM users WHERE user_id = $1",
             user_id
         )
+
 
 async def save_contact(user_id: int, phone: str):
     pool = _require_pool()
@@ -209,6 +256,7 @@ async def save_contact(user_id: int, phone: str):
             """,
             user_id, phone
         )
+
 
 async def upsert_specialist(category: str, chat_id: int, username: str | None, full_name: str | None):
     pool = _require_pool()
@@ -255,3 +303,39 @@ async def is_specialist(chat_id: int) -> bool:
             chat_id
         )
         return val is not None
+
+
+# ✅ YANGI FUNKSIYALAR - Dinamik keyboard uchun
+
+async def get_all_specialists():
+    """
+    Barcha ro'yxatdan o'tgan mutaxassislarni qaytaradi
+    """
+    pool = _require_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT category, chat_id, username, full_name 
+            FROM specialists 
+            WHERE is_active = TRUE
+            ORDER BY category
+            """
+        )
+        return [dict(row) for row in rows]
+
+
+async def get_specialist_by_full_name(full_name: str):
+    """
+    Ism-familiya bo'yicha mutaxassisni topadi
+    """
+    pool = _require_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT category, chat_id, username, full_name 
+            FROM specialists 
+            WHERE full_name = $1 AND is_active = TRUE
+            """,
+            full_name
+        )
+        return dict(row) if row else None

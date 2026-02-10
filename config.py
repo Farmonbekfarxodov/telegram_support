@@ -15,27 +15,27 @@ DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_NAME = os.getenv("DB_NAME", "support_bot")
 
-# Mutaxassislar (chat_id .env dan yoki keyinchalik qo'lda to'ldiriladi)
+# Mutaxassislar (endi database'dan olinadi)
 SPECIALISTS = {
-    "texnik": {
-        "name": "📞 Texnik Yordam",
-        "chat_id": int(os.getenv("SPECIALIST_TEXNIK_CHAT_ID", "0")) if os.getenv("SPECIALIST_TEXNIK_CHAT_ID") else None,
-        "username": "@nickname1"
+    "admin1": {
+        "name": "👤 Admin 1",
+        "chat_id": int(os.getenv("SPECIALIST_ADMIN1_CHAT_ID", "0")) if os.getenv("SPECIALIST_ADMIN1_CHAT_ID") else None,
+        "username": "@admin1"
     },
-    "savdo": {
-        "name": "💼 Savdo Bo'limi",
-        "chat_id": int(os.getenv("SPECIALIST_SAVDO_CHAT_ID", "0")) if os.getenv("SPECIALIST_SAVDO_CHAT_ID") else None,
-        "username": "@nickname2"
+    "admin2": {
+        "name": "👤 Admin 2",
+        "chat_id": int(os.getenv("SPECIALIST_ADMIN2_CHAT_ID", "0")) if os.getenv("SPECIALIST_ADMIN2_CHAT_ID") else None,
+        "username": "@admin2"
     },
-    "konsultatsiya": {
-        "name": "📊 Konsultatsiya",
-        "chat_id": int(os.getenv("SPECIALIST_KONSULTATSIYA_CHAT_ID", "0")) if os.getenv("SPECIALIST_KONSULTATSIYA_CHAT_ID") else None,
-        "username": "@nickname3"
+    "admin3": {
+        "name": "👤 Admin 3",
+        "chat_id": int(os.getenv("SPECIALIST_ADMIN3_CHAT_ID", "0")) if os.getenv("SPECIALIST_ADMIN3_CHAT_ID") else None,
+        "username": "@admin3"
     },
-    "boshqa": {
-        "name": "⚙️ Boshqa",
-        "chat_id": int(os.getenv("SPECIALIST_BOSHQA_CHAT_ID", "0")) if os.getenv("SPECIALIST_BOSHQA_CHAT_ID") else None,
-        "username": "@nickname4"
+    "admin4": {
+        "name": "👤 Admin 4",
+        "chat_id": int(os.getenv("SPECIALIST_ADMIN4_CHAT_ID", "0")) if os.getenv("SPECIALIST_ADMIN4_CHAT_ID") else None,
+        "username": "@admin4"
     }
 }
 
